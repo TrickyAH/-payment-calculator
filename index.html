@@ -1,134 +1,408 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Calculator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
-    <div class="max-w-2xl mx-auto">
-        <div class="bg-white rounded-2xl shadow-xl p-8">
-            <h1 class="text-3xl font-bold text-gray-800 mb-8">Payment Calculator</h1>
-            
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">YouTuber Name</label>
-                <input type="text" id="youtuberName" placeholder="Enter name" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
-            </div>
+import React, { useState, useEffect } from 'react';
+import { DollarSign, Video, Plus, Copy, Check, Trash2, Edit2 } from 'lucide-react';
 
-            <div class="bg-purple-50 p-6 rounded-xl mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Regular Videos</h2>
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Total Number of Videos</label>
-                    <input type="number" id="totalVideos" placeholder="0" class="w-full px-4 py-3 border border-purple-200 rounded-lg">
-                    <p class="text-sm text-gray-500 mt-1">$20 guaranteed per video</p>
-                </div>
+export default function YouTuberPaymentTracker() {
+  const [youtubers, setYoutubers] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [copied, setCopied] = useState(null);
+  
+  const [formData, setFormData] = useState({
+    channelUrl: '',
+    channelName: '',
+    profilePic: '',
+    videoRate: '',
+    shortsRate: ''
+  });
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Total Views Over 1,000 (Combined)</label>
-                    <input type="number" id="excessViews" placeholder="0" class="w-full px-4 py-3 border border-purple-200 rounded-lg">
-                    <p class="text-sm text-gray-500 mt-1">Add all views above 1k together. Example: Video 1 has 3,500 views → add 2,500. Video 2 has 1,800 views → add 800. Total: 3,300</p>
-                </div>
-            </div>
+  useEffect(() => {
+    const saved = localStorage.getItem('youtubers');
+    if (saved) {
+      setYoutubers(JSON.parse(saved));
+    }
+  }, []);
 
-            <div class="bg-blue-50 p-6 rounded-xl mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Shorts</h2>
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Payment Per Short ($)</label>
-                    <input type="number" id="shortsRate" placeholder="0.00" step="0.01" class="w-full px-4 py-3 border border-blue-200 rounded-lg">
-                </div>
+  const saveToStorage = (data) => {
+    localStorage.setItem('youtubers', JSON.stringify(data));
+  };
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Number of Shorts Produced</label>
-                    <input type="number" id="shortsCount" placeholder="0" class="w-full px-4 py-3 border border-blue-200 rounded-lg">
-                </div>
-            </div>
+  const extractChannelInfo = () => {
+    const url = formData.channelUrl;
+    if (!url) return;
 
-            <div class="bg-gradient-to-r from-purple-600 to-blue-600 p-6 rounded-xl text-white">
-                <h2 class="text-xl font-semibold mb-4">Payment Breakdown</h2>
-                
-                <div class="space-y-3">
-                    <div class="flex justify-between">
-                        <span>Video Base Pay:</span>
-                        <span id="videoBase" class="font-semibold">$0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>View Bonus:</span>
-                        <span id="viewBonus" class="font-semibold">$0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Shorts Total:</span>
-                        <span id="shortsTotal" class="font-semibold">$0.00</span>
-                    </div>
-                    <div class="border-t border-purple-300 pt-3 mt-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-xl font-bold">Total Payment:</span>
-                            <span id="totalPayment" class="text-3xl font-bold">$0.00</span>
-                        </div>
-                    </div>
-                </div>
+    let channelId = '';
+    if (url.includes('youtube.com/@')) {
+      channelId = url.split('@')[1]?.split('/')[0];
+      setFormData(prev => ({ ...prev, channelName: channelId }));
+    } else if (url.includes('youtube.com/channel/')) {
+      channelId = url.split('channel/')[1]?.split('/')[0];
+      setFormData(prev => ({ ...prev, channelName: 'Channel' }));
+    } else if (url.includes('youtube.com/c/')) {
+      channelId = url.split('/c/')[1]?.split('/')[0];
+      setFormData(prev => ({ ...prev, channelName: channelId }));
+    }
+  };
 
-                <button onclick="copyToClipboard()" class="mt-6 w-full px-6 py-3 bg-white text-purple-600 rounded-lg hover:bg-purple-50 font-semibold">
-                    Copy to Clipboard
-                </button>
-            </div>
-        </div>
-    </div>
+  const calculateTotal = (videoRate, videoCount, shortsRate, shortsCount) => {
+    const vRate = parseFloat(videoRate) || 0;
+    const vCount = parseFloat(videoCount) || 0;
+    const sRate = parseFloat(shortsRate) || 0;
+    const sCount = parseFloat(shortsCount) || 0;
+    
+    return (vRate * vCount) + (sRate * sCount);
+  };
 
-    <script>
-        function calculate() {
-            const videos = parseFloat(document.getElementById('totalVideos').value) || 0;
-            const views = parseFloat(document.getElementById('excessViews').value) || 0;
-            const shorts = parseFloat(document.getElementById('shortsCount').value) || 0;
-            const rate = parseFloat(document.getElementById('shortsRate').value) || 0;
+  const addYoutuber = () => {
+    if (!formData.channelName || !formData.videoRate) {
+      alert('Please fill in at least Channel Name and Video Rate');
+      return;
+    }
 
-            const videoBase = videos * 20;
-            const viewBonus = (views / 1000) * 25;
-            const shortsTotal = shorts * rate;
-            const total = videoBase + viewBonus + shortsTotal;
+    if (editingId) {
+      // Update existing
+      const updated = youtubers.map(y => 
+        y.id === editingId 
+          ? { 
+              ...y, 
+              channelName: formData.channelName,
+              channelUrl: formData.channelUrl,
+              profilePic: formData.profilePic,
+              videoRate: formData.videoRate,
+              shortsRate: formData.shortsRate
+            }
+          : y
+      );
+      setYoutubers(updated);
+      saveToStorage(updated);
+      setEditingId(null);
+    } else {
+      // Add new
+      const newYoutuber = {
+        id: Date.now(),
+        channelName: formData.channelName,
+        channelUrl: formData.channelUrl,
+        profilePic: formData.profilePic,
+        videoRate: formData.videoRate,
+        shortsRate: formData.shortsRate,
+        videoCount: '0',
+        shortsCount: '0'
+      };
 
-            document.getElementById('videoBase').textContent = '$' + videoBase.toFixed(2);
-            document.getElementById('viewBonus').textContent = '$' + viewBonus.toFixed(2);
-            document.getElementById('shortsTotal').textContent = '$' + shortsTotal.toFixed(2);
-            document.getElementById('totalPayment').textContent = '$' + total.toFixed(2);
-        }
+      const updated = [...youtubers, newYoutuber];
+      setYoutubers(updated);
+      saveToStorage(updated);
+    }
+    
+    setFormData({
+      channelUrl: '',
+      channelName: '',
+      profilePic: '',
+      videoRate: '',
+      shortsRate: ''
+    });
+    setShowForm(false);
+  };
 
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('input', calculate);
-        });
+  const editYoutuber = (youtuber) => {
+    setFormData({
+      channelUrl: youtuber.channelUrl,
+      channelName: youtuber.channelName,
+      profilePic: youtuber.profilePic,
+      videoRate: youtuber.videoRate,
+      shortsRate: youtuber.shortsRate
+    });
+    setEditingId(youtuber.id);
+    setShowForm(true);
+  };
 
-        function copyToClipboard() {
-            const name = document.getElementById('youtuberName').value || 'YouTuber';
-            const videos = document.getElementById('totalVideos').value || 0;
-            const views = document.getElementById('excessViews').value || 0;
-            const shorts = document.getElementById('shortsCount').value || 0;
-            const rate = document.getElementById('shortsRate').value || 0;
-            const videoBase = document.getElementById('videoBase').textContent;
-            const viewBonus = document.getElementById('viewBonus').textContent;
-            const shortsTotal = document.getElementById('shortsTotal').textContent;
-            const total = document.getElementById('totalPayment').textContent;
+  const deleteYoutuber = (id) => {
+    const updated = youtubers.filter(y => y.id !== id);
+    setYoutubers(updated);
+    saveToStorage(updated);
+  };
 
-            const text = `Payment Summary - ${name}
+  const updateYoutuber = (id, field, value) => {
+    const updated = youtubers.map(y => 
+      y.id === id ? { ...y, [field]: value } : y
+    );
+    setYoutubers(updated);
+    saveToStorage(updated);
+  };
 
-Regular Videos:
-- Total Videos: ${videos}
-- Video Base Pay: ${videoBase}
-- Views Over 1K: ${views}
-- View Bonus: ${viewBonus}
+  const copyPaymentInfo = (youtuber) => {
+    const videoTotal = (parseFloat(youtuber.videoRate) * parseFloat(youtuber.videoCount || 0)).toFixed(2);
+    const shortsTotal = ((parseFloat(youtuber.shortsRate) || 0) * (parseFloat(youtuber.shortsCount) || 0)).toFixed(2);
+    const total = calculateTotal(youtuber.videoRate, youtuber.videoCount, youtuber.shortsRate, youtuber.shortsCount);
+
+    const text = `Payment Summary - ${youtuber.channelName}
+
+Videos:
+- Rate: $${youtuber.videoRate} per video
+- Count: ${youtuber.videoCount || 0} videos
+- Total: $${videoTotal}
 
 Shorts:
-- Number of Shorts: ${shorts}
-- Rate Per Short: $${rate}
-- Shorts Total: ${shortsTotal}
+- Rate: $${youtuber.shortsRate || 0} per short
+- Count: ${youtuber.shortsCount || 0} shorts
+- Total: $${shortsTotal}
 
-TOTAL PAYMENT: ${total}`;
+TOTAL PAYMENT: $${total.toFixed(2)}`;
 
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Copied to clipboard!');
-            });
-        }
-    </script>
-</body>
-</html>
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(youtuber.id);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
+
+  const cancelEdit = () => {
+    setFormData({
+      channelUrl: '',
+      channelName: '',
+      profilePic: '',
+      videoRate: '',
+      shortsRate: ''
+    });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="bg-purple-100 p-3 rounded-lg">
+              <DollarSign className="w-8 h-8 text-purple-600" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800">YouTuber Payment Tracker</h1>
+          </div>
+          
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+          >
+            <Plus className="w-5 h-5" />
+            Add YouTuber
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+              {editingId ? 'Edit YouTuber' : 'Add New YouTuber'}
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  YouTube Channel URL
+                </label>
+                <input
+                  type="text"
+                  value={formData.channelUrl}
+                  onChange={(e) => setFormData({ ...formData, channelUrl: e.target.value })}
+                  onBlur={extractChannelInfo}
+                  placeholder="https://youtube.com/@channelname"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="text-sm text-gray-500 mt-1">Paste the channel URL and we'll extract the name</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Channel Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.channelName}
+                  onChange={(e) => setFormData({ ...formData, channelName: e.target.value })}
+                  placeholder="Enter channel name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Profile Picture URL (optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.profilePic}
+                  onChange={(e) => setFormData({ ...formData, profilePic: e.target.value })}
+                  placeholder="https://... (paste image URL)"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="text-sm text-gray-500 mt-1">Right-click their profile pic → Copy Image Address</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Flat Rate Per Video ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.videoRate}
+                    onChange={(e) => setFormData({ ...formData, videoRate: e.target.value })}
+                    placeholder="0.00"
+                    step="0.01"
+                    className="w-full px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Rate Per Short ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.shortsRate}
+                    onChange={(e) => setFormData({ ...formData, shortsRate: e.target.value })}
+                    placeholder="0.00"
+                    step="0.01"
+                    className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={addYoutuber}
+                  className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                >
+                  {editingId ? 'Update YouTuber' : 'Save YouTuber'}
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {youtubers.map((youtuber) => {
+            const total = calculateTotal(youtuber.videoRate, youtuber.videoCount, youtuber.shortsRate, youtuber.shortsCount);
+            
+            return (
+              <div key={youtuber.id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
+                  <div className="flex items-center gap-4 mb-4">
+                    {youtuber.profilePic ? (
+                      <div className="w-16 h-16 rounded-full border-2 border-white overflow-hidden bg-gray-200 flex-shrink-0">
+                        <img 
+                          src={youtuber.profilePic} 
+                          alt={youtuber.channelName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error('Image failed to load:', youtuber.profilePic);
+                            e.target.parentElement.innerHTML = `<div class="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-purple-600">${youtuber.channelName.charAt(0).toUpperCase()}</div>`;
+                          }}
+                          onLoad={() => console.log('Image loaded successfully')}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-purple-600">
+                        {youtuber.channelName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg">{youtuber.channelName}</h3>
+                    </div>
+                  </div>
+                  
+                  <div className="text-3xl font-bold">
+                    ${total.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-purple-100">Total Payment</div>
+                </div>
+
+                <div className="p-6">
+                  <div className="space-y-4 mb-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Videos (${youtuber.videoRate} each)</label>
+                      <input
+                        type="number"
+                        value={youtuber.videoCount}
+                        onChange={(e) => updateYoutuber(youtuber.id, 'videoCount', e.target.value)}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <div className="text-xs text-gray-600 mt-1">
+                        = ${(parseFloat(youtuber.videoRate) * parseFloat(youtuber.videoCount || 0)).toFixed(2)}
+                      </div>
+                    </div>
+                    
+                    {youtuber.shortsRate > 0 && (
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Shorts (${youtuber.shortsRate} each)</label>
+                        <input
+                          type="number"
+                          value={youtuber.shortsCount}
+                          onChange={(e) => updateYoutuber(youtuber.id, 'shortsCount', e.target.value)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                        <div className="text-xs text-gray-600 mt-1">
+                          = ${((parseFloat(youtuber.shortsRate) || 0) * (parseFloat(youtuber.shortsCount) || 0)).toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => copyPaymentInfo(youtuber)}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-semibold"
+                    >
+                      {copied === youtuber.id ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => editYoutuber(youtuber)}
+                      className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteYoutuber(youtuber.id);
+                      }}
+                      className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {youtubers.length === 0 && !showForm && (
+          <div className="text-center py-16">
+            <Video className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No YouTubers Added Yet</h3>
+            <p className="text-gray-500">Click "Add YouTuber" to get started</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
